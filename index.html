@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Explorer - Our Solar System</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        space: {
+                            900: '#0B0D17',
+                            800: '#151932',
+                            light: '#D0D6F9'
+                        }
+                    },
+                    backgroundImage: {
+                        'stars': 'radial-gradient(white 1px, transparent 1px), radial-gradient(white 1px, transparent 1px)',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'spin-slow': 'spin 20s linear infinite',
+                        'pulse-glow': 'pulse-glow 4s ease-in-out infinite'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: '0.8', filter: 'brightness(1)' },
+                            '50%': { opacity: '1', filter: 'brightness(1.5) drop-shadow(0 0 10px rgba(255,255,255,0.5))' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <style>
+        body {
+            background-color: #050505;
+            background-image:
+                radial-gradient(circle at 50% 120%, #1a1a3a 10%, transparent 60%),
+                radial-gradient(white 1px, transparent 1px);
+            background-size: 100% 100%, 550px 550px;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0B0D17;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2d3748;
+            border-radius: 4px;
+        }
+
+        .planet-glow {
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .backdrop-blur-md {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+
+<body x-data="solarSystem" class="antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header
+        class="w-full py-6 px-8 flex justify-between items-center z-50 fixed top-0 w-full backdrop-blur-sm bg-black/10 border-b border-white/5">
+        <h1 class="text-2xl font-bold tracking-widest uppercase">The Solar System</h1>
+        <nav class="hidden md:block">
+            <ul class="flex space-x-8 text-sm tracking-widest uppercase text-gray-400">
+                <li class="hover:text-white cursor-pointer transition-colors">Overview</li>
+                <li class="hover:text-white cursor-pointer transition-colors">Planets</li>
+                <li class="hover:text-white cursor-pointer transition-colors">Missions</li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col items-center justify-center relative pt-24 pb-12 px-4">
+
+        <!-- Hero Text -->
+        <div class="text-center mb-16 z-10 transition-opacity duration-500"
+            :class="{'opacity-0 pointer-events-none absolute': activePlanet}">
+            <h2
+                class="text-6xl md:text-8xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500">
+                EXPLORE
+            </h2>
+            <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto font-light leading-relaxed">
+                Journey through our cosmic neighborhood. Discover the distinct worlds orbiting our Sun.
+            </p>
+        </div>
+
+        <!-- Solar System Display -->
+        <div
+            class="relative w-full max-w-7xl mx-auto flex flex-wrap justify-center items-center gap-8 md:gap-16 z-10 perspective-1000">
+
+            <template x-for="(planet, index) in planets" :key="planet.name">
+                <div class="group relative flex flex-col items-center cursor-pointer transition-all duration-500"
+                    :class="activePlanet && activePlanet.name === planet.name ? 'scale-125 z-50 order-first' : (activePlanet ? 'opacity-30 scale-75 blur-[2px]' : 'hover:scale-110')"
+                    @click="selectPlanet(planet)" style="perspective: 1000px;">
+                    <!-- Planet Visual -->
+                    <div class="rounded-full bg-gradient-to-br planet-glow shadow-2xl relative animate-float"
+                        :class="[planet.size, planet.color]" :style="`animation-delay: ${index * 0.5}s`">
+                        <!-- Rings for Saturn -->
+                        <template x-if="planet.hasRings">
+                            <div
+                                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160%] h-[160%] rounded-full border-[12px] border-yellow-100/30 rotate-[70deg] scale-y-[0.3]">
+                            </div>
+                        </template>
+
+                        <!-- Atmosphere Glow -->
+                        <div
+                            class="absolute inset-0 rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 bg-white blur-xl mix-blend-overlay">
+                        </div>
+                    </div>
+
+                    <!-- Label -->
+                    <div class="mt-6 text-center transition-all duration-300">
+                        <h3 class="text-xl font-bold uppercase tracking-wider text-white group-hover:text-blue-200"
+                            x-text="planet.name"></h3>
+                        <div class="h-0.5 w-0 bg-blue-400 mx-auto transition-all duration-300 group-hover:w-full mt-1">
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+        </div>
+
+        <!-- Detail Modal/Overlay -->
+        <div x-show="showDetails" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-10" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-10"
+            class="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-4 md:p-12 pointer-events-none">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" @click="closeDetails()">
+            </div>
+
+            <template x-if="activePlanet">
+                <div
+                    class="pointer-events-auto bg-gray-900/80 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-3xl max-w-4xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-16 shadow-2xl relative overflow-hidden">
+
+                    <!-- Close Button -->
+                    <button @click="closeDetails()"
+                        class="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+
+                    <!-- Planet Large Visual -->
+                    <div class="relative w-48 h-48 md:w-80 md:h-80 flex-shrink-0 animate-spin-slow">
+                        <div class="w-full h-full rounded-full bg-gradient-to-br planet-glow shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                            :class="activePlanet.color"></div>
+                        <template x-if="activePlanet.hasRings">
+                            <div
+                                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160%] h-[160%] rounded-full border-[24px] border-yellow-100/30 rotate-[70deg] scale-y-[0.3]">
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="flex-1 text-center md:text-left z-10">
+                        <h2 class="text-4xl md:text-6xl font-black mb-4 uppercase tracking-tighter"
+                            x-text="activePlanet.name"></h2>
+                        <p class="text-lg text-gray-300 leading-relaxed mb-8" x-text="activePlanet.description"></p>
+
+                        <div class="grid grid-cols-3 gap-4 border-t border-white/10 pt-8">
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Diameter</p>
+                                <p class="text-lg md:text-xl font-medium font-mono"
+                                    x-text="activePlanet.stats.diameter"></p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Dist. from Sun</p>
+                                <p class="text-lg md:text-xl font-medium font-mono"
+                                    x-text="activePlanet.stats.distance"></p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Moons</p>
+                                <p class="text-lg md:text-xl font-medium font-mono" x-text="activePlanet.stats.moons">
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Background Decoration -->
+                    <div
+                        class="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-b from-white to-transparent opacity-5 rounded-full blur-3xl pointer-events-none">
+                    </div>
+                </div>
+            </template>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full py-6 text-center text-gray-600 text-sm z-50">
+        <p>&copy; 2024 Solar System Explorer. Design inspired by AISAR.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
