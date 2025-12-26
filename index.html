@@ -33,7 +33,8 @@
                     animation: {
                         'float': 'float 6s ease-in-out infinite',
                         'spin-slow': 'spin 20s linear infinite',
-                        'pulse-glow': 'pulse-glow 4s ease-in-out infinite'
+                        'pulse-glow': 'pulse-glow 4s ease-in-out infinite',
+                        'orbit': 'spin linear infinite'
                     },
                     keyframes: {
                         float: {
@@ -57,11 +58,13 @@
         body {
             background-color: #050505;
             background-image:
-                radial-gradient(circle at 50% 120%, #1a1a3a 10%, transparent 60%),
+                radial-gradient(circle at 50% 50%, #1a1a3a 5%, transparent 40%),
                 radial-gradient(white 1px, transparent 1px);
             background-size: 100% 100%, 550px 550px;
             color: white;
-            overflow-x: hidden;
+            overflow: hidden;
+            /* Prevent scrolling for the full immersive experience */
+            position: relative;
         }
 
         /* Custom scrollbar */
@@ -79,12 +82,56 @@
         }
 
         .planet-glow {
-            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.1);
+            box-shadow: inset -4px -4px 8px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .sun-glow {
+            box-shadow: 0 0 60px rgba(253, 184, 19, 0.6), 0 0 20px rgba(253, 184, 19, 0.8), inset 0 0 20px rgba(253, 184, 19, 1);
         }
 
         .backdrop-blur-md {
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* Interaction Logic */
+        .orbit-container {
+            pointer-events: none;
+        }
+
+        .orbit-ring {
+            pointer-events: none;
+        }
+
+        /* Pause animation when hovering the specific planet only (via bubbling) */
+        .orbit-ring:hover {
+            animation-play-state: paused;
+            z-index: 100;
+            /* Bring to front when hovering */
+        }
+
+        .planet-hitbox {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .orbit-container:hover .orbit-ring {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Jupiter Red Spot */
+        .jupiter-spot::after {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 20%;
+            top: 60%;
+            left: 55%;
+            background: radial-gradient(closest-side, rgba(168, 74, 50, 0.8) 0%, transparent 100%);
+            border-radius: 50%;
+            transform: rotate(-15deg);
+            filter: blur(1px);
+            box-shadow: inset 0 0 5px rgba(100, 30, 20, 0.5);
         }
     </style>
 </head>
@@ -92,67 +139,88 @@
 <body x-data="solarSystem" class="antialiased min-h-screen flex flex-col">
 
     <!-- Header -->
-    <header
-        class="w-full py-6 px-8 flex justify-between items-center z-50 fixed top-0 w-full backdrop-blur-sm bg-black/10 border-b border-white/5">
-        <h1 class="text-2xl font-bold tracking-widest uppercase">The Solar System</h1>
-        <nav class="hidden md:block">
+    <header class="w-full py-4 px-8 flex justify-between items-center z-50 fixed top-0 w-full pointer-events-none">
+        <h1 class="text-2xl font-bold tracking-widest uppercase pointer-events-auto">The Solar System</h1>
+        <nav class="hidden md:block pointer-events-auto">
             <ul class="flex space-x-8 text-sm tracking-widest uppercase text-gray-400">
-                <li class="hover:text-white cursor-pointer transition-colors">Overview</li>
-                <li class="hover:text-white cursor-pointer transition-colors">Planets</li>
-                <li class="hover:text-white cursor-pointer transition-colors">Missions</li>
+                <li class="cursor-pointer transition-colors"
+                    :class="currentView === 'solar-system' ? 'text-white font-bold' : 'hover:text-white'"
+                    @click="currentView = 'solar-system'">Solar System</li>
+                <li class="cursor-pointer transition-colors"
+                    :class="currentView === 'earth' ? 'text-white font-bold' : 'hover:text-white'"
+                    @click="currentView = 'earth'">Earth</li>
+
             </ul>
         </nav>
+
     </header>
 
     <!-- Main Content -->
-    <main class="flex-grow flex flex-col items-center justify-center relative pt-24 pb-12 px-4">
+    <main class="flex-grow flex items-center justify-center relative w-full h-screen overflow-hidden">
 
-        <!-- Hero Text -->
-        <div class="text-center mb-16 z-10 transition-opacity duration-500"
-            :class="{'opacity-0 pointer-events-none absolute': activePlanet}">
-            <h2
-                class="text-6xl md:text-8xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500">
-                EXPLORE
-            </h2>
-            <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto font-light leading-relaxed">
-                Journey through our cosmic neighborhood. Discover the distinct worlds orbiting our Sun.
-            </p>
-        </div>
+        <!-- Solar System Center -->
+        <div class="relative flex items-center justify-center">
 
-        <!-- Solar System Display -->
-        <div
-            class="relative w-full max-w-7xl mx-auto flex flex-wrap justify-center items-center gap-8 md:gap-16 z-10 perspective-1000">
+            <!-- CENTER BODY (Sun or Earth) -->
+            <div class="absolute z-10 rounded-full transition-all duration-500 cursor-pointer hover:scale-110 bg-gradient-to-br"
+                :class="[centerBody.size, centerBody.color, centerBody.glowClass]" @click="selectPlanet(centerBody)">
+            </div>
 
-            <template x-for="(planet, index) in planets" :key="planet.name">
-                <div class="group relative flex flex-col items-center cursor-pointer transition-all duration-500"
-                    :class="activePlanet && activePlanet.name === planet.name ? 'scale-125 z-50 order-first' : (activePlanet ? 'opacity-30 scale-75 blur-[2px]' : 'hover:scale-110')"
-                    @click="selectPlanet(planet)" style="perspective: 1000px;">
-                    <!-- Planet Visual -->
-                    <div class="rounded-full bg-gradient-to-br planet-glow shadow-2xl relative animate-float"
-                        :class="[planet.size, planet.color]" :style="`animation-delay: ${index * 0.5}s`">
-                        <!-- Rings for Saturn -->
-                        <template x-if="planet.hasRings">
-                            <div
-                                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160%] h-[160%] rounded-full border-[12px] border-yellow-100/30 rotate-[70deg] scale-y-[0.3]">
+            <!-- Planets & Orbits -->
+            <template x-for="(planet, index) in visiblePlanets" :key="planet.name">
+                <div class="absolute rounded-full border border-white/5 orbit-container flex items-center justify-center"
+                    :style="`width: ${planet.orbitDiameter}; height: ${planet.orbitDiameter}; z-index: ${50 - index};`">
+
+                    <!-- Orbit Ring (Spinning) -->
+                    <div class="orbit-ring w-full h-full rounded-full animate-orbit absolute top-0 left-0 transition-colors duration-300"
+                        :style="`animation-duration: ${planet.orbitSpeed}`">
+
+                        <!-- Planet Position (Top Center) -->
+                        <div class="planet-hitbox absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 group"
+                            @click="selectPlanet(planet)">
+
+                            <!-- Planet Visual -->
+                            <div class="rounded-full bg-gradient-to-br planet-glow transition-transform duration-300 group-hover:scale-125"
+                                :class="[planet.size, planet.color]">
+
+                                <!-- Rings for Saturn -->
+                                <template x-if="planet.hasRings">
+                                    <div
+                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160%] h-[160%] rounded-full border-[6px] border-yellow-100/30 rotate-[70deg] scale-y-[0.3]">
+                                    </div>
+                                </template>
+
+
                             </div>
-                        </template>
 
-                        <!-- Atmosphere Glow -->
-                        <div
-                            class="absolute inset-0 rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 bg-white blur-xl mix-blend-overlay">
-                        </div>
-                    </div>
-
-                    <!-- Label -->
-                    <div class="mt-6 text-center transition-all duration-300">
-                        <h3 class="text-xl font-bold uppercase tracking-wider text-white group-hover:text-blue-200"
-                            x-text="planet.name"></h3>
-                        <div class="h-0.5 w-0 bg-blue-400 mx-auto transition-all duration-300 group-hover:w-full mt-1">
+                            <!-- Label -->
+                            <div
+                                class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold uppercase tracking-wider text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                <span x-text="planet.name"></span>
+                                <!-- Satellites -->
+                                <template x-if="planet.satellites">
+                                    <template x-for="satellite in planet.satellites">
+                                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none border border-white/5"
+                                            :style="`width: ${satellite.orbitDiameter}; height: ${satellite.orbitDiameter}; animation: spin ${satellite.orbitSpeed} linear infinite`">
+                                            <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-sm pointer-events-auto cursor-pointer hover:scale-125 transition-transform"
+                                                :class="[satellite.size, satellite.color]"
+                                                @click.stop="selectPlanet(satellite)"></div>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
             </template>
 
+        </div>
+
+        <!-- Hero Text (Background) -->
+        <div class="absolute bottom-10 left-10 pointer-events-none opacity-20">
+            <h2 class="text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                ORBIT
+            </h2>
         </div>
 
         <!-- Detail Modal/Overlay -->
@@ -166,7 +234,7 @@
 
             <template x-if="activePlanet">
                 <div
-                    class="pointer-events-auto bg-gray-900/80 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-3xl max-w-4xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-16 shadow-2xl relative overflow-hidden">
+                    class="pointer-events-auto bg-gray-900/90 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-3xl max-w-4xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-16 shadow-2xl relative overflow-hidden">
 
                     <!-- Close Button -->
                     <button @click="closeDetails()"
@@ -202,7 +270,8 @@
                                     x-text="activePlanet.stats.diameter"></p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Dist. from Sun</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-widest mb-1"
+                                    x-text="activePlanet.distanceLabel || 'Dist. from Sun'"></p>
                                 <p class="text-lg md:text-xl font-medium font-mono"
                                     x-text="activePlanet.stats.distance"></p>
                             </div>
@@ -223,11 +292,6 @@
         </div>
 
     </main>
-
-    <!-- Footer -->
-    <footer class="w-full py-6 text-center text-gray-600 text-sm z-50">
-        <p>&copy; 2024 Solar System Explorer. Design inspired by AISAR.</p>
-    </footer>
 
     <script src="js/app.js"></script>
 </body>
